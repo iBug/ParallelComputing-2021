@@ -14,7 +14,7 @@ int main() {
     int n;
     scanf("%d", &n);
     if (popcnt(n) != 1) {
-        fprintf(stderr, "Invalid number\n");
+        fprintf(stderr, "Invalid number %d\n", n);
         return 1;
     }
     int *A = malloc(n * sizeof(*A));
@@ -31,7 +31,7 @@ int main() {
     }
 
     // Broadcast
-    for (int i = n << 1; i > 0; i >>= 1) {
+    for (int i = n >> 1; i > 0; i >>= 1) {
 #pragma omp parallel for
         for (int j = 0; j < n; j += i << 1) {
             A[j + i] = A[j];

@@ -57,28 +57,11 @@ int main(int argc, char **argv) {
         sum += A[i];
     free(A);
 
-    // Binary-tree gather & reduce
+    // Butterfly exchange & add
     for (int i = 1; i < size; i <<= 1) {
-        if ((rank & (i - 1)) != 0)
-            continue;
-        if ((rank & i) == 0) {
-            int value;
-            MPI_Recv(&value, 1, MPI_INT, rank ^ i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            sum += value;
-        } else {
-            MPI_Send(&sum, 1, MPI_INT, rank ^ i, 0, MPI_COMM_WORLD);
-        }
-    }
-
-    // Binary-tree broadcast
-    for (int i = size >> 1; i > 0; i >>= 1) {
-        if ((rank & (i - 1)) != 0)
-            continue;
-        if ((rank & i) == 0) {
-            MPI_Send(&sum, 1, MPI_INT, rank ^ i, 0, MPI_COMM_WORLD);
-        } else {
-            MPI_Recv(&sum, 1, MPI_INT, rank ^ i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
+        int value;
+        MPI_Sendrecv(&sum, 1, MPI_INT, rank ^ i, 0, &value, 1, MPI_INT, rank ^ i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        sum += value;
     }
 
     // Print result

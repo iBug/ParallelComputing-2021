@@ -3,4 +3,5 @@
 input.txt
 output.txt
 1-bintree-omp
+1-butterfly-mpi
 1-bintree-mpi

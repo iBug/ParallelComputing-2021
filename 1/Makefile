@@ -12,6 +12,9 @@ OMP_BINS := $(patsubst %.c, %, $(OMP_SRCS))
 MPI_BINS := $(patsubst %.c, %, $(MPI_SRCS))
 BINS := $(OMP_BINS) $(MPI_BINS)
 
+# Extra .gitignore entries
+IGNORES := *.o input.txt output.txt
+
 
 .PHONY: all clean .gitignore
 
@@ -25,8 +28,7 @@ $(MPI_BINS): %: %.c
 
 .gitignore: $(SRCS)
 	@echo "# Generated from Makefile" > $@
-	@echo "*.o" >> $@
-	@for i in $(BINS); do echo "$$i" >> $@; done
+	@for i in $(IGNORES) $(BINS); do echo "$$i" >> $@; done
 
 clean:
 	rm -f $(BINS)

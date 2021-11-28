@@ -1,0 +1,5 @@
+# Generated from Makefile
+*.o
+input.txt
+output.txt
+1-bintree-omp

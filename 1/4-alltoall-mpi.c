@@ -31,8 +31,8 @@ int main(int argc, char **argv) {
     int iters = 100, count = 4096;
     if (argc > 1) {
         iters = atoi(argv[1]);
-        if (iters < 1) {
-            iters = 100;
+        if (iters < 0) {
+            iters = 0;
         }
     }
     if (argc > 2) {
@@ -61,23 +61,25 @@ int main(int argc, char **argv) {
     if (rank == 0)
         fprintf(stderr, "Data validated\n");
 
-    // Performance check
-    double start, end;
+    if (iters > 0) {
+        // Performance check
+        double start, end;
 
 #define TO_STRING(x) #x
 #define TO_STRING_V(x) TO_STRING(x)
-#define RUN_TEST(func) \
-{ \
-    start = MPI_Wtime(); \
-    for (int i = 0; i < iters; i++) \
-        func(sendbuf, count, MPI_INT, recvbuf, count, MPI_INT, MPI_COMM_WORLD); \
-    end = MPI_Wtime(); \
-    if (rank == 0) \
-        fprintf(stderr, TO_STRING(func) ": %d iterations in %lf seconds, %lf op/s\n", iters, end - start, iters / (end - start)); \
-}
+#define RUN_TEST(func)                                                                                                                \
+    {                                                                                                                                 \
+        start = MPI_Wtime();                                                                                                          \
+        for (int i = 0; i < iters; i++)                                                                                               \
+            func(sendbuf, count, MPI_INT, recvbuf, count, MPI_INT, MPI_COMM_WORLD);                                                   \
+        end = MPI_Wtime();                                                                                                            \
+        if (rank == 0)                                                                                                                \
+            fprintf(stderr, TO_STRING(func) ": %d iterations in %lf seconds, %lf op/s\n", iters, end - start, iters / (end - start)); \
+    }
 
-    RUN_TEST(MPI_Alltoall);
-    RUN_TEST(My_Alltoall);
+        RUN_TEST(MPI_Alltoall);
+        RUN_TEST(My_Alltoall);
+    }
 
     MPI_Finalize();
     return 0;

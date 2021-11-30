@@ -13,14 +13,49 @@ int My_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void
     int sendchunk = sendcount * sendtypesize,
         recvchunk = recvcount * recvtypesize;
     memcpy(recvbuf + rank * recvchunk, sendbuf, sendchunk); // send to self
-    int i;
-    for (i = 1; (i << 1) <= size; i <<= 1) {
-        int idx_start = rank & ~(i - 1);
-        MPI_Sendrecv(recvbuf + idx_start * sendchunk, sendcount * i, sendtype, rank ^ i, 0, recvbuf + (idx_start ^ i) * recvchunk, recvcount * i, recvtype, rank ^ i, 0, comm, MPI_STATUS_IGNORE);
+    for (int i = 1; i < size; i <<= 1) {
+        int peer = rank ^ i,
+            start = rank & ~(i - 1),
+            rstart = start ^ i,
+            blocks = (start + i > size) ? (size - start) : i,
+            rblocks = (rstart + i > size) ? (size - rstart) : i;
+        if (rstart >= size)
+            continue;
+
+        if (1) {
+            fprintf(stderr, "%d: <%d>, S[%d:%d], R[%d:%d]\n", rank, peer, start, start + blocks - 1, rstart, rstart + rblocks - 1);
+        }
+        int j = 1;
+        if (peer < size) {
+            MPI_Sendrecv(recvbuf + start * sendchunk, sendcount * blocks, sendtype, peer, 0, recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, peer, 0, comm, MPI_STATUS_IGNORE);
+        } else {
+            for (; j < i; j <<= 1) {
+                int sibling = rank ^ j,
+                    rsibling = peer ^ j,
+                    s_partialrank = sibling & (i - 1);
+                if (rsibling < size || s_partialrank < j) {
+                    fprintf(stderr, "%d: no peer %d, <%d> R[%d:%d]\n", rank, peer, sibling, rstart, rstart + rblocks - 1);
+                    MPI_Recv(recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, sibling, 0, comm, MPI_STATUS_IGNORE);
+                    j <<= 1;
+                    break;
+                }
+            }
+        }
+        for (; j < i; j <<= 1) {
+            int sibling = rank ^ j,
+                rsibling = peer ^ j,
+                s_partialrank = size & (j - 1);
+            if (rank == 1) {
+                int A = rsibling >= size, B = s_partialrank == 0;
+                fprintf(stderr, "%d: i=%d, j=%d, test peer %d of %d (A:%d, B:%d)\n", rank, i, j, rsibling, sibling, A, B);
+            }
+            if (rsibling >= size && s_partialrank == 0) {
+                fprintf(stderr, "%d: no peer %d, <%d> S[%d:%d]\n", rank, rsibling, sibling, rstart, rstart + rblocks - 1);
+                MPI_Send(recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, sibling, 0, comm);
+            }
+        }
     }
-    if (i != size) {
-        // Special handling for last round
-    }
+    fprintf(stderr, "%d: done\n", rank);
     return 0;
 }
 
@@ -34,8 +69,8 @@ int main(int argc, char **argv) {
     int iters = 50, count = 4096;
     if (argc > 1) {
         iters = atoi(argv[1]);
-        if (iters < 1) {
-            iters = 50;
+        if (iters < 0) {
+            iters = 0;
         }
     }
     if (argc > 2) {
@@ -65,8 +100,9 @@ int main(int argc, char **argv) {
     if (rank == 0)
         fprintf(stderr, "Data validated\n");
 
-    // Performance check
-    double start, end;
+    if (iters > 0) {
+        // Performance check
+        double start, end;
 
 #define TO_STRING(x) #x
 #define TO_STRING_V(x) TO_STRING(x)
@@ -80,8 +116,9 @@ int main(int argc, char **argv) {
             fprintf(stderr, TO_STRING(func) ": %d iterations in %lf seconds, %lf op/s\n", iters, end - start, iters / (end - start)); \
     }
 
-    RUN_TEST(MPI_Allgather);
-    RUN_TEST(My_Allgather);
+        RUN_TEST(MPI_Allgather);
+        RUN_TEST(My_Allgather);
+    }
 
     MPI_Finalize();
     return 0;

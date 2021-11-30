@@ -7,10 +7,10 @@ CXXFLAGS := $(CFLAGS)
 
 OMP_SRCS := $(wildcard *-omp.c)
 MPI_SRCS := $(wildcard *-mpi.c)
-SRCS := $(OMP_SRCS) $(MPI_SRCS)
+SRCS := $(sort $(OMP_SRCS) $(MPI_SRCS))
 OMP_BINS := $(patsubst %.c, %, $(OMP_SRCS))
 MPI_BINS := $(patsubst %.c, %, $(MPI_SRCS))
-BINS := $(OMP_BINS) $(MPI_BINS)
+BINS := $(sort $(OMP_BINS) $(MPI_BINS))
 
 # Extra .gitignore entries
 IGNORES := *.o input.txt output.txt

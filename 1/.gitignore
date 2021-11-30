@@ -7,4 +7,5 @@ output.txt
 1-butterfly-mpi
 1-butterfly-omp
 3-mybcast-mpi
+4-allgather-mpi
 4-alltoall-mpi

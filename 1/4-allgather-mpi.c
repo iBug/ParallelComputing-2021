@@ -22,9 +22,6 @@ int My_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void
         if (rstart >= size)
             continue;
 
-        if (1) {
-            fprintf(stderr, "%d: <%d>, S[%d:%d], R[%d:%d]\n", rank, peer, start, start + blocks - 1, rstart, rstart + rblocks - 1);
-        }
         int j = 1;
         if (peer < size) {
             MPI_Sendrecv(recvbuf + start * sendchunk, sendcount * blocks, sendtype, peer, 0, recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, peer, 0, comm, MPI_STATUS_IGNORE);
@@ -32,9 +29,8 @@ int My_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void
             for (; j < i; j <<= 1) {
                 int sibling = rank ^ j,
                     rsibling = peer ^ j,
-                    s_partialrank = sibling & (i - 1);
-                if (rsibling < size || s_partialrank < j) {
-                    fprintf(stderr, "%d: no peer %d, <%d> R[%d:%d]\n", rank, peer, sibling, rstart, rstart + rblocks - 1);
+                    rsource = rsibling & ~(j - 1);
+                if (rsibling < size || rsource < size) {
                     MPI_Recv(recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, sibling, 0, comm, MPI_STATUS_IGNORE);
                     j <<= 1;
                     break;
@@ -44,18 +40,11 @@ int My_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void
         for (; j < i; j <<= 1) {
             int sibling = rank ^ j,
                 rsibling = peer ^ j,
-                s_partialrank = size & (j - 1);
-            if (rank == 1) {
-                int A = rsibling >= size, B = s_partialrank == 0;
-                fprintf(stderr, "%d: i=%d, j=%d, test peer %d of %d (A:%d, B:%d)\n", rank, i, j, rsibling, sibling, A, B);
-            }
-            if (rsibling >= size && s_partialrank == 0) {
-                fprintf(stderr, "%d: no peer %d, <%d> S[%d:%d]\n", rank, rsibling, sibling, rstart, rstart + rblocks - 1);
+                rsource = size & ((j << 1) - 1);
+            if (rsibling >= size && (rsource <= j || (rank & (j - 1)) == 0))
                 MPI_Send(recvbuf + rstart * recvchunk, recvcount * rblocks, recvtype, sibling, 0, comm);
-            }
         }
     }
-    fprintf(stderr, "%d: done\n", rank);
     return 0;
 }
 

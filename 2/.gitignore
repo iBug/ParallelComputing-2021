@@ -1,5 +1,6 @@
 # Generated from Makefile
 *.o
 dataIn.txt
+dataOut.txt
 ludep
 lu-decompose

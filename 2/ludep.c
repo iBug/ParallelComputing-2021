@@ -62,6 +62,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Main computation
     for (int i = 0; i < N; i++) {
         const int round = i / size; // original "i"
         const int mr = i % size;    // main row

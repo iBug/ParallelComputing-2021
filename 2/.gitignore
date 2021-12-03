@@ -2,5 +2,4 @@
 *.o
 dataIn.txt
 dataOut.txt
-lu-decompose
 ludep

@@ -1,0 +1,5 @@
+# Generated from Makefile
+*.o
+dataIn.txt
+ludep
+lu-decompose

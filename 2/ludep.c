@@ -77,6 +77,7 @@ int main(int argc, char **argv) {
             memcpy(a + (N / size) * N, A + (N / size) * scatter_unit, N * sizeof(*a));
         if (N % size > 1) {
             if (rank == 0) {
+#pragma omp parallel for
                 for (int i = 1; i < N % size; i++) {
                     MPI_Send(A + (N / size) * scatter_unit + i * N, 1, Mtype, i, 0, MPI_COMM_WORLD);
                 }
@@ -98,14 +99,18 @@ int main(int argc, char **argv) {
             MPI_Bcast(f + i, N - i, MPI_FLOAT, mr, MPI_COMM_WORLD);
 
             if (rank <= mr) {
+#pragma omp parallel for
                 for (int k = round + 1; k < m; k++) {
                     a[k * N + i] /= f[i];
+                    // #pragma omp simd
                     for (int w = i + 1; w < N; w++)
                         a[k * N + w] -= f[w] * a[k * N + i];
                 }
             } else {
+#pragma omp parallel for
                 for (int k = round; k < m; k++) {
                     a[k * N + i] /= f[i];
+                    // #pragma omp simd
                     for (int w = i + 1; w < N; w++)
                         a[k * N + w] -= f[w] * a[k * N + i];
                 }
@@ -119,6 +124,7 @@ int main(int argc, char **argv) {
             memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
         if (N % size > 1) {
             if (rank == 0) {
+#pragma omp parallel for
                 for (int i = 1; i < N % size; i++) {
                     MPI_Recv(A + (N / size) * scatter_unit + i * N, 1, Mtype, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }

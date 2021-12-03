@@ -1,31 +1,20 @@
 CC := gcc
-CXX := g+=
 MPICC := mpicc
-MPICXX := mpic++
 CFLAGS := -O2 -Wall -Wno-unused-result
-CXXFLAGS := $(CFLAGS)
 
-CXXEXT := cpp
-CSRCS := $(sort $(wildcard *.c))
-CXXSRCS := $(sort $(wildcard *.$(CXXEXT)))
-CBINS := $(patsubst %.c, %, $(CSRCS))
-CXXBINS := $(patsubst %.$(CXXEXT), %, $(CXXSRCS))
-SRCS := $(CSRCS) $(CXXSRCS)
-BINS := $(CBINS) $(CXXBINS)
+SRCS := $(sort $(wildcard *.c))
+BINS := $(patsubst %.c, %, $(SRCS))
 
 # Extra .gitignore entries
-IGNORES := *.o *.txt
+IGNORES := "*.o" $(sort $(wildcard *.txt))
 
 
 .PHONY: all clean .gitignore
 
 all: .gitignore $(BINS)
 
-$(CBINS): %: %.c
+$(BINS): %: %.c
 	$(MPICC) $(CFLAGS) -o $@ $^
-
-$(CXXBINS): %: %.$(CXXEXT)
-	$(MPICXX) $(CXXFLAGS) -o $@ $^
 
 .gitignore: $(SRCS)
 	@echo "# Generated from Makefile" > $@

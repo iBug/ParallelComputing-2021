@@ -2,5 +2,5 @@
 *.o
 dataIn.txt
 dataOut.txt
-ludep
 lu-decompose
+ludep

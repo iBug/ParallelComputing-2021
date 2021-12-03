@@ -117,19 +117,20 @@ int main(int argc, char **argv) {
         }
 
         for (int i = 0; i < N / size; i++) {
-            MPI_Gather(a + i * N, N, MPI_FLOAT, A + i * scatter_unit, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
+            MPI_Gather(a + i * N, 1, Mtype, A + i * scatter_unit, 1, Mtype, 0, MPI_COMM_WORLD);
         }
         if (N % size && rank == 0)
             memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
         if (N % size > 1) {
             if (rank == 0) {
                 for (int i = 1; i < N % size; i++) {
-                    MPI_Recv(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(A + (N / size) * scatter_unit + i * N, 1, Mtype, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }
             } else {
-                MPI_Send(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+                MPI_Send(a + (N / size) * N, 1, Mtype, 0, 0, MPI_COMM_WORLD);
             }
         }
+        MPI_Type_free(&Mtype);
         const double end = MPI_Wtime();
         total_time += end - start;
     }

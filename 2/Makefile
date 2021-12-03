@@ -1,6 +1,6 @@
 CC := gcc
 MPICC := mpicc
-CFLAGS := -O2 -Wall -Wno-unused-result
+CFLAGS := -O3 -Wall -Wno-unused-result -march=native
 
 SRCS := $(sort $(wildcard *.c))
 BINS := $(patsubst %.c, %, $(SRCS))

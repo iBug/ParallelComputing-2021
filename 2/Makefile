@@ -1,6 +1,7 @@
 CC := gcc
 MPICC := mpicc
 CFLAGS := -O3 -Wall -Wno-unused-result -march=native -fopenmp
+LDFLAGS := -lm
 
 SRCS := $(sort $(wildcard *.c))
 BINS := $(patsubst %.c, %, $(SRCS))
@@ -13,8 +14,14 @@ IGNORES := "*.o" "*.txt"
 
 all: .gitignore $(BINS)
 
-$(BINS): %: %.c
-	$(MPICC) $(CFLAGS) -o $@ $^
+%: %.c
+	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+ludep: ludep.c
+	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+qr: qr.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 .gitignore: $(SRCS)
 	@echo "# Generated from Makefile" > $@

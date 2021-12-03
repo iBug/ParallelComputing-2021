@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
             fputc('\n', fp);
         }
 
+        fclose(fp);
         free(A);
     }
     free(a);

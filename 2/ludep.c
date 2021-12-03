@@ -95,11 +95,7 @@ int main(int argc, char **argv) {
             } else {
                 f = buf;
             }
-            MPI_Datatype Mtype2;
-            MPI_Type_create_resized(Mtype, i * sizeof *f, N * sizeof *f, &Mtype2);
-            MPI_Type_commit(&Mtype2);
-            MPI_Bcast(f, 1, Mtype2, mr, MPI_COMM_WORLD);
-            MPI_Type_free(&Mtype2);
+            MPI_Bcast(f + i, N - i, MPI_FLOAT, mr, MPI_COMM_WORLD);
 
             if (rank <= mr) {
                 for (int k = round + 1; k < m; k++) {

@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < N / size; i++) {
         COMM_WORLD.Scatter(A + i * scatter_unit, N, MPI::FLOAT, a + i * N, N, MPI::FLOAT, 0);
     }
-    if (N % size)
+    if (N % size && rank == 0)
         std::memcpy(a + (N / size) * N, A + (N / size) * scatter_unit, N * sizeof(*a));
     if (N % size > 1) {
         if (rank == 0) {
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < N / size; i++) {
         COMM_WORLD.Gather(a + i * N, N, MPI::FLOAT, A + i * scatter_unit, N, MPI::FLOAT, 0);
     }
-    if (N % size)
+    if (N % size && rank == 0)
         std::memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
     if (N % size > 1) {
         if (rank == 0) {

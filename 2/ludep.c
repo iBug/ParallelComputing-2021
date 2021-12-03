@@ -65,19 +65,23 @@ int main(int argc, char **argv) {
     for (int loop = 0; loop < loops; loop++) {
         const double start = MPI_Wtime();
 
+        MPI_Datatype Mtype; // for packed MPI transmission
+        MPI_Type_contiguous(N, MPI_FLOAT, &Mtype);
+        MPI_Type_commit(&Mtype);
+
         const int scatter_unit = N * size;
         for (int i = 0; i < N / size; i++) {
-            MPI_Scatter(A + i * scatter_unit, N, MPI_FLOAT, a + i * N, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
+            MPI_Scatter(A + i * scatter_unit, 1, Mtype, a + i * N, 1, Mtype, 0, MPI_COMM_WORLD);
         }
         if (N % size && rank == 0)
             memcpy(a + (N / size) * N, A + (N / size) * scatter_unit, N * sizeof(*a));
         if (N % size > 1) {
             if (rank == 0) {
                 for (int i = 1; i < N % size; i++) {
-                    MPI_Send(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+                    MPI_Send(A + (N / size) * scatter_unit + i * N, 1, Mtype, i, 0, MPI_COMM_WORLD);
                 }
             } else if (rank < (N / size)) {
-                MPI_Recv(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv(a + (N / size) * N, 1, Mtype, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
 
@@ -91,7 +95,11 @@ int main(int argc, char **argv) {
             } else {
                 f = buf;
             }
-            MPI_Bcast(f, N, MPI_FLOAT, mr, MPI_COMM_WORLD);
+            MPI_Datatype Mtype2;
+            MPI_Type_create_resized(Mtype, i * sizeof *f, N * sizeof *f, &Mtype2);
+            MPI_Type_commit(&Mtype2);
+            MPI_Bcast(f, 1, Mtype2, mr, MPI_COMM_WORLD);
+            MPI_Type_free(&Mtype2);
 
             if (rank <= mr) {
                 for (int k = round + 1; k < m; k++) {

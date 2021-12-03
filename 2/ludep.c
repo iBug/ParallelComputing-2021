@@ -44,72 +44,90 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    const double start = MPI_Wtime();
+    int loops = 1;
+    if (argc > 3) {
+        loops = atoi(argv[3]);
+        if (loops < 1) {
+            if (rank == 0)
+                fprintf(stderr, "Invalid number of loops\n");
+            MPI_Finalize();
+            return 1;
+        }
+    }
+    if (rank == 0)
+        fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
+
+    double total_time = 0.;
     const int m = N / size + (N % size > 0);
     float *a = malloc(N * m * sizeof *a);
     float *buf = malloc(N * sizeof *buf);
 
-    const int scatter_unit = N * size;
-    for (int i = 0; i < N / size; i++) {
-        MPI_Scatter(A + i * scatter_unit, N, MPI_FLOAT, a + i * N, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    }
-    if (N % size && rank == 0)
-        memcpy(a + (N / size) * N, A + (N / size) * scatter_unit, N * sizeof(*a));
-    if (N % size > 1) {
-        if (rank == 0) {
-            for (int i = 1; i < N % size; i++) {
-                MPI_Send(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
-            }
-        } else if (rank < (N / size)) {
-            MPI_Recv(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-    }
+    for (int loop = 0; loop < loops; loop++) {
+        const double start = MPI_Wtime();
 
-    // Main computation
-    for (int i = 0; i < N; i++) {
-        const int round = i / size; // original "i"
-        const int mr = i % size;    // main row
-        float *f;
-        if (rank == mr) {
-            f = a + round * N;
-        } else {
-            f = buf;
+        const int scatter_unit = N * size;
+        for (int i = 0; i < N / size; i++) {
+            MPI_Scatter(A + i * scatter_unit, N, MPI_FLOAT, a + i * N, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
         }
-        MPI_Bcast(f, N, MPI_FLOAT, mr, MPI_COMM_WORLD);
+        if (N % size && rank == 0)
+            memcpy(a + (N / size) * N, A + (N / size) * scatter_unit, N * sizeof(*a));
+        if (N % size > 1) {
+            if (rank == 0) {
+                for (int i = 1; i < N % size; i++) {
+                    MPI_Send(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+                }
+            } else if (rank < (N / size)) {
+                MPI_Recv(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
 
-        if (rank <= mr) {
-            for (int k = round + 1; k < m; k++) {
-                a[k * N + i] /= f[i];
-                for (int w = i + 1; w < N; w++)
-                    a[k * N + w] -= f[w] * a[k * N + i];
+        // Main computation
+        for (int i = 0; i < N; i++) {
+            const int round = i / size; // original "i"
+            const int mr = i % size;    // main row
+            float *f;
+            if (rank == mr) {
+                f = a + round * N;
+            } else {
+                f = buf;
             }
-        } else {
-            for (int k = round; k < m; k++) {
-                a[k * N + i] /= f[i];
-                for (int w = i + 1; w < N; w++)
-                    a[k * N + w] -= f[w] * a[k * N + i];
-            }
-        }
-    }
+            MPI_Bcast(f, N, MPI_FLOAT, mr, MPI_COMM_WORLD);
 
-    for (int i = 0; i < N / size; i++) {
-        MPI_Gather(a + i * N, N, MPI_FLOAT, A + i * scatter_unit, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    }
-    if (N % size && rank == 0)
-        memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
-    if (N % size > 1) {
-        if (rank == 0) {
-            for (int i = 1; i < N % size; i++) {
-                MPI_Recv(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            if (rank <= mr) {
+                for (int k = round + 1; k < m; k++) {
+                    a[k * N + i] /= f[i];
+                    for (int w = i + 1; w < N; w++)
+                        a[k * N + w] -= f[w] * a[k * N + i];
+                }
+            } else {
+                for (int k = round; k < m; k++) {
+                    a[k * N + i] /= f[i];
+                    for (int w = i + 1; w < N; w++)
+                        a[k * N + w] -= f[w] * a[k * N + i];
+                }
             }
-        } else {
-            MPI_Send(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         }
+
+        for (int i = 0; i < N / size; i++) {
+            MPI_Gather(a + i * N, N, MPI_FLOAT, A + i * scatter_unit, N, MPI_FLOAT, 0, MPI_COMM_WORLD);
+        }
+        if (N % size && rank == 0)
+            memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
+        if (N % size > 1) {
+            if (rank == 0) {
+                for (int i = 1; i < N % size; i++) {
+                    MPI_Recv(A + (N / size) * scatter_unit + i * N, N, MPI_FLOAT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+            } else {
+                MPI_Send(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+            }
+        }
+        const double end = MPI_Wtime();
+        total_time += end - start;
     }
-    const double end = MPI_Wtime();
 
     if (rank == 0) {
-        fprintf(stderr, "Time: %.3lfs\n", end - start);
+        fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);
 
         const char *filename;
         if (argc >= 3) {
@@ -153,5 +171,6 @@ int main(int argc, char **argv) {
     free(a);
     free(buf);
 
+    MPI_Finalize();
     return 0;
 }

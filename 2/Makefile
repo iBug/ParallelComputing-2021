@@ -6,7 +6,7 @@ SRCS := $(sort $(wildcard *.c))
 BINS := $(patsubst %.c, %, $(SRCS))
 
 # Extra .gitignore entries
-IGNORES := "*.o" $(sort $(wildcard *.txt))
+IGNORES := "*.o" "*.txt"
 
 
 .PHONY: all clean .gitignore

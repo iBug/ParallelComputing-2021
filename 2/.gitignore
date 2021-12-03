@@ -1,5 +1,4 @@
 # Generated from Makefile
 *.o
-dataIn.txt
-dataOut.txt
+*.txt
 ludep

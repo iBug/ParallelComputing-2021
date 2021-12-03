@@ -39,9 +39,12 @@ int main(int argc, char **argv) {
         }
     }
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    if (N == 0)
+    if (N == 0) {
+        MPI_Finalize();
         return 1;
+    }
 
+    const double start = MPI_Wtime();
     const int m = N / size + (N % size > 0);
     float *a = malloc(N * m * sizeof *a);
     float *buf = malloc(N * sizeof *buf);
@@ -103,8 +106,11 @@ int main(int argc, char **argv) {
             MPI_Send(a + (N / size) * N, N, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         }
     }
+    const double end = MPI_Wtime();
 
     if (rank == 0) {
+        fprintf(stderr, "Time: %.3lfs\n", end - start);
+
         const char *filename;
         if (argc >= 3) {
             filename = argv[2];

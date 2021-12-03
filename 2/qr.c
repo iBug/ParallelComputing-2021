@@ -33,10 +33,6 @@ int main(int argc, char **argv) {
             fclose(fp);
         }
     }
-    float *aj = malloc(4 * N * sizeof *aj);
-    float *qj = aj + N,
-          *ai = qj + N,
-          *qi = ai + N;
 
     int loops = 1;
     if (argc > 3) {
@@ -65,16 +61,14 @@ int main(int argc, char **argv) {
                 float c = A[j * N + j] / sq;
                 float s = A[i * N + j] / sq;
                 for (int k = 0; k < N; k++) {
-                    aj[k] = c * A[j * N + k] + s * A[i * N + k];
-                    qj[k] = c * Q[j * N + k] + s * Q[i * N + k];
-                    ai[k] = -s * A[j * N + k] + c * A[i * N + k];
-                    qi[k] = -s * Q[j * N + k] + c * Q[i * N + k];
-                }
-                for (int k = 0; k < N; k++) {
-                    A[j * N + k] = aj[k];
-                    Q[j * N + k] = qj[k];
-                    A[i * N + k] = ai[k];
-                    Q[i * N + k] = qi[k];
+                    float aj = c * A[j * N + k] + s * A[i * N + k];
+                    float qj = c * Q[j * N + k] + s * Q[i * N + k];
+                    float ai = -s * A[j * N + k] + c * A[i * N + k];
+                    float qi = -s * Q[j * N + k] + c * Q[i * N + k];
+                    A[j * N + k] = aj;
+                    Q[j * N + k] = qj;
+                    A[i * N + k] = ai;
+                    Q[i * N + k] = qi;
                 }
             }
         }
@@ -123,7 +117,6 @@ int main(int argc, char **argv) {
     }
 
     fclose(fp);
-    free(aj);
     free(A);
     free(Q);
     free(R);

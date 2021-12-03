@@ -12,7 +12,7 @@ def gen_input(size, scale):
     with open(INPUT, "w") as f:
         f.write(f"{size} {size}\n")
         for i in range(size):
-            f.write("{}\n".format("\t".join([str((2 * scale - scale) * random.random()) for _ in range(size)])))
+            f.write("{}\n".format("\t".join([str(2 * scale * random.random() - scale) for _ in range(size)])))
 
 
 def check_output(rtol):

@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv) {
     int N;
-    float *A = NULL, *R = NULL;
+    float *A = NULL, *R = NULL, *Q = NULL;
     {
         const char *filename;
         if (argc >= 2) {
@@ -25,14 +25,11 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Invalid matrix size\n");
                 return 1;
             }
-            A = malloc(2 * N * N * sizeof *A);
-            R = malloc(2 * N * N * sizeof *R);
-            for (int i = 0; i < N; i++) {
-                for (int j = 0; j < N; j++) {
-                    fscanf(fp, "%f", R + 2 * i * N + j);
-                    R[2 * i * N + N + j] = (float)(i == j);
-                }
-            }
+            A = malloc(N * N * sizeof *A);
+            R = malloc(N * N * sizeof *R);
+            Q = malloc(N * N * sizeof *Q);
+            for (int i = 0; i < N * N; i++)
+                fscanf(fp, "%f", R + i);
             fclose(fp);
         }
     }
@@ -50,29 +47,29 @@ int main(int argc, char **argv) {
     double total_time = 0.;
     for (int loop = 0; loop < loops; loop++) {
         // Reset A and Q
-        memcpy(A, R, 2 * N * N * sizeof *A);
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                Q[i * N + j] = (float)(i == j);
+            }
+        }
+        memcpy(A, R, N * N * sizeof *A);
         const double start = omp_get_wtime();
 
         for (int j = 0; j < N; j++) {
             for (int i = j + 1; i < N; i++) {
-                float sq = sqrtf(A[2 * j * N + j] * A[2 * j * N + j] + A[2 * i * N + j] * A[2 * i * N + j]);
-                float c = A[2 * j * N + j] / sq;
-                float s = A[2 * i * N + j] / sq;
-                for (int k = 0; k < 2 * N; k++) {
-                    float aj = c * A[2 * j * N + k] + s * A[2 * i * N + k];
-                    float ai = -s * A[2 * j * N + k] + c * A[2 * i * N + k];
-                    A[2 * j * N + k] = aj;
-                    A[2 * i * N + k] = ai;
+                float sq = sqrtf(A[j * N + j] * A[j * N + j] + A[i * N + j] * A[i * N + j]);
+                float c = A[j * N + j] / sq;
+                float s = A[i * N + j] / sq;
+                for (int k = 0; k < N; k++) {
+                    float aj = c * A[j * N + k] + s * A[i * N + k];
+                    float qj = c * Q[j * N + k] + s * Q[i * N + k];
+                    float ai = -s * A[j * N + k] + c * A[i * N + k];
+                    float qi = -s * Q[j * N + k] + c * Q[i * N + k];
+                    A[j * N + k] = aj;
+                    Q[j * N + k] = qj;
+                    A[i * N + k] = ai;
+                    Q[i * N + k] = qi;
                 }
-            }
-        }
-
-        // Transpose Q
-        for (int j = 0; j < N; j++) {
-            for (int i = j + 1; i < N; i++) {
-                float t = A[2 * i * N + N + j];
-                A[2 * i * N + N + j] = A[2 * j * N + N + i];
-                A[2 * j * N + N + i] = t;
             }
         }
 
@@ -88,30 +85,34 @@ int main(int argc, char **argv) {
         filename = "dataOut.txt";
     }
     FILE *fp = fopen(filename, "w");
-
-    // Output R
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            fprintf(fp, "%f", A[2 * i * N + j]);
-            if (j < N - 1)
-                fputc('\t', fp);
+    if (fp) {
+        // Output R
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                fprintf(fp, "%f", A[i * N + j]);
+                if (j < N - 1)
+                    fputc('\t', fp);
+            }
+            fputc('\n', fp);
         }
         fputc('\n', fp);
-    }
-    fputc('\n', fp);
 
-    // Output Q
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            fprintf(fp, "%f", A[2 * i * N + N + j]);
-            if (j < N - 1)
-                fputc('\t', fp);
+        // Output Q
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                fprintf(fp, "%f", Q[j * N + i]);
+                if (j < N - 1)
+                    fputc('\t', fp);
+            }
+            fputc('\n', fp);
         }
-        fputc('\n', fp);
-    }
 
-    fclose(fp);
+        fclose(fp);
+    } else {
+        fprintf(stderr, "Cannot open file \"%s\"\n", filename);
+    }
     free(A);
+    free(Q);
     free(R);
     return 0;
 }

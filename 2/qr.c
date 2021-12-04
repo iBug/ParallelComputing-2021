@@ -27,9 +27,11 @@ int main(int argc, char **argv) {
             }
             A = malloc(2 * N * N * sizeof *A);
             R = malloc(2 * N * N * sizeof *R);
-            for (int i = 0; i < N * N; i++) {
-                fscanf(fp, "%f", R + 2 * i);
-                R[2 * i + 1] = (float)(i % N == i / N);
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < N; j++) {
+                    fscanf(fp, "%f", R + 2 * i * N + j);
+                    R[2 * i * N + N + j] = (float)(i == j);
+                }
             }
             fclose(fp);
         }
@@ -53,18 +55,14 @@ int main(int argc, char **argv) {
 
         for (int j = 0; j < N; j++) {
             for (int i = j + 1; i < N; i++) {
-                float sq = sqrtf(A[2 * (j * N + j)] * A[2 * (j * N + j)] + A[2 * (i * N + j)] * A[2 * (i * N + j)]);
-                float c = A[2 * (j * N + j)] / sq;
-                float s = A[2 * (i * N + j)] / sq;
-                for (int k = 0; k < N; k++) {
-                    float aj = c * A[2 * (j * N + k)] + s * A[2 * (i * N + k)];
-                    float ai = -s * A[2 * (j * N + k)] + c * A[2 * (i * N + k)];
-                    float qj = c * A[2 * (j * N + k) + 1] + s * A[2 * (i * N + k) + 1];
-                    float qi = -s * A[2 * (j * N + k) + 1] + c * A[2 * (i * N + k) + 1];
-                    A[2 * (j * N + k)] = aj;
-                    A[2 * (i * N + k)] = ai;
-                    A[2 * (j * N + k) + 1] = qj;
-                    A[2 * (i * N + k) + 1] = qi;
+                float sq = sqrtf(A[2 * j * N + j] * A[2 * j * N + j] + A[2 * i * N + j] * A[2 * i * N + j]);
+                float c = A[2 * j * N + j] / sq;
+                float s = A[2 * i * N + j] / sq;
+                for (int k = 0; k < 2 * N; k++) {
+                    float aj = c * A[2 * j * N + k] + s * A[2 * i * N + k];
+                    float ai = -s * A[2 * j * N + k] + c * A[2 * i * N + k];
+                    A[2 * j * N + k] = aj;
+                    A[2 * i * N + k] = ai;
                 }
             }
         }
@@ -72,9 +70,9 @@ int main(int argc, char **argv) {
         // Transpose Q
         for (int j = 0; j < N; j++) {
             for (int i = j + 1; i < N; i++) {
-                float t = A[2 * (i * N + j) + 1];
-                A[2 * (i * N + j) + 1] = A[2 * (j * N + i) + 1];
-                A[2 * (j * N + i) + 1] = t;
+                float t = A[2 * i * N + N + j];
+                A[2 * i * N + N + j] = A[2 * j * N + N + i];
+                A[2 * j * N + N + i] = t;
             }
         }
 
@@ -94,7 +92,7 @@ int main(int argc, char **argv) {
     // Output R
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            fprintf(fp, "%f", A[2 * (i * N + j)]);
+            fprintf(fp, "%f", A[2 * i * N + j]);
             if (j < N - 1)
                 fputc('\t', fp);
         }
@@ -105,7 +103,7 @@ int main(int argc, char **argv) {
     // Output Q
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            fprintf(fp, "%f", A[2 * (i * N + j) + 1]);
+            fprintf(fp, "%f", A[2 * i * N + N + j]);
             if (j < N - 1)
                 fputc('\t', fp);
         }

@@ -62,12 +62,12 @@ int main(int argc, char **argv) {
     float *a = malloc(N * m * sizeof *a);
     float *buf = malloc(N * sizeof *buf);
 
+    MPI_Datatype Mtype; // for packed MPI transmission
+    MPI_Type_contiguous(N, MPI_FLOAT, &Mtype);
+    MPI_Type_commit(&Mtype);
+
     for (int loop = 0; loop < loops; loop++) {
         const double start = MPI_Wtime();
-
-        MPI_Datatype Mtype; // for packed MPI transmission
-        MPI_Type_contiguous(N, MPI_FLOAT, &Mtype);
-        MPI_Type_commit(&Mtype);
 
         const int scatter_unit = N * size;
         for (int i = 0; i < N / size; i++) {
@@ -132,10 +132,10 @@ int main(int argc, char **argv) {
                 MPI_Send(a + (N / size) * N, 1, Mtype, 0, 0, MPI_COMM_WORLD);
             }
         }
-        MPI_Type_free(&Mtype);
         const double end = MPI_Wtime();
         total_time += end - start;
     }
+    MPI_Type_free(&Mtype);
 
     if (rank == 0) {
         fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);

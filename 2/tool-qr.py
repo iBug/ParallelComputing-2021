@@ -24,9 +24,9 @@ def check_output(rtol, atol):
         r_matrix = np.matrix([[float(x) for x in f.readline().split()] for _ in range(size)])
         f.readline()
         q_matrix = np.matrix([[float(x) for x in f.readline().split()] for _ in range(size)])
-    result = np.allclose(q_matrix * q_matrix.T, np.identity(size), rtol=rtol, atol=atol)
+    result = np.allclose(q_matrix.T * q_matrix, np.identity(size), rtol=rtol, atol=atol)
     if not result:
-        print(q_matrix * q_matrix.T - np.identity)
+        print((q_matrix.T * q_matrix - np.identity(size)).max())
         print("Bad Q matrix")
         return 1
     l_result = q_matrix * r_matrix

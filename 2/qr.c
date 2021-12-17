@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
 #pragma omp single
         {
             memcpy(A, S, N * N * sizeof(*A));
+            memset(Q, 0, N * N * sizeof(*Q));
             memset(R, 0, N * N * sizeof(*R));
         }
         const double start = omp_get_wtime();
@@ -85,7 +86,6 @@ int main(int argc, char **argv) {
                 if (j < i)
                     continue;
 
-                R[(i - 1) * N + j] = R[j * N + (i - 1)] = 0.F;
                 for (int k = 0; k < N; k++)
                     R[j * N + (i - 1)] += Q[(i - 1) * N + k] * A[j * N + k];
                 for (int k = 0; k < N; k++)

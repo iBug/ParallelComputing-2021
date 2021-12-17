@@ -56,8 +56,11 @@ int main(int argc, char **argv) {
 #pragma omp for schedule(static, 1)
         for (int i = 0; i < N; i++)
             omp_set_lock(&lock[i]);
-        memcpy(A, S, N * N * sizeof(*A));
-        memset(R, 0, N * N * sizeof(*R));
+#pragma omp single
+        {
+            memcpy(A, S, N * N * sizeof(*A));
+            memset(R, 0, N * N * sizeof(*R));
+        }
         const double start = omp_get_wtime();
 
         // First column of ( Q[][0] )
@@ -79,23 +82,23 @@ int main(int argc, char **argv) {
 
 #pragma omp for schedule(static, 1) nowait
             for (int j = 0; j < N; j++) {
-                if (j >= i) {
-                    // R[(i - 1) * N + j] = R[j * N + (i - 1)] = 0.F;
-                    R[(i - 1) * N + j] = 0.F;
-                    for (int k = 0; k < N; k++)
-                        R[j * N + (i - 1)] += Q[(i - 1) * N + k] * A[j * N + k];
-                    for (int k = 0; k < N; k++)
-                        A[j * N + k] -= R[j * N + (i - 1)] * Q[(i - 1) * N + k];
+                if (j < i)
+                    continue;
 
-                    if (i == j) {
-                        float sum = 0.F;
-                        for (int k = 0; k < N; k++)
-                            sum += A[i * N + k] * A[i * N + k];
-                        R[i * N + i] = sqrtf(sum);
-                        for (int k = 0; k < N; k++)
-                            Q[i * N + k] = A[i * N + k] / R[i * N + i];
-                        omp_unset_lock(&lock[i]);
-                    }
+                R[(i - 1) * N + j] = R[j * N + (i - 1)] = 0.F;
+                for (int k = 0; k < N; k++)
+                    R[j * N + (i - 1)] += Q[(i - 1) * N + k] * A[j * N + k];
+                for (int k = 0; k < N; k++)
+                    A[j * N + k] -= R[j * N + (i - 1)] * Q[(i - 1) * N + k];
+
+                if (i == j) {
+                    float sum = 0.F;
+                    for (int k = 0; k < N; k++)
+                        sum += A[i * N + k] * A[i * N + k];
+                    R[i * N + i] = sqrtf(sum);
+                    for (int k = 0; k < N; k++)
+                        Q[i * N + k] = A[i * N + k] / R[i * N + i];
+                    omp_unset_lock(&lock[i]);
                 }
             }
         }

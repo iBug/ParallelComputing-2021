@@ -122,22 +122,6 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
     }
 
-    for (int r = 0; r < size; r++) {
-        if (rank == r) {
-            fprintf(stderr, "Rank %d (y=%d, x=%d):\n", r, coords[0], coords[1]);
-            for (int i = 0; i < chunkAA; i++) {
-                fprintf(stderr, "%f ", myA[i]);
-            }
-            fprintf(stderr, "\n");
-            for (int i = 0; i < chunkBA; i++) {
-                fprintf(stderr, "%f ", myB[i]);
-            }
-            fprintf(stderr, "\n");
-        }
-        fflush(stderr);
-        MPI_Barrier(comm_cart);
-    }
-
     float *localA = malloc(chunkAA * sizeof *localA),
           *localB = malloc(chunkBA * sizeof *localB);
     C = myC;
@@ -170,7 +154,6 @@ int main(int argc, char **argv) {
             for (int i = 0; i < chunkCH; i++) {
                 for (int j = 0; j < chunkCW; j++) {
                     for (int k = 0; k < kend - kstart; k++) {
-                        fprintf(stderr, "[%d] A: %f, B: %f\n", rank, A[i * chunkAW + offsetAk + k], B[j * chunkBH + offsetBk + k]);
                         C[i * chunkCW + j] += A[i * chunkAW + offsetAk + k] * B[j * chunkBH + offsetBk + k];
                     }
                 }
@@ -200,7 +183,7 @@ int main(int argc, char **argv) {
         }
         FILE *fp = fopen(filename, "w");
         if (fp) {
-            for (int i = 0; i < N; i++) {
+            for (int i = 0; i < M; i++) {
                 for (int j = 0; j < N; j++) {
                     int
                         cx = j / chunkCW,

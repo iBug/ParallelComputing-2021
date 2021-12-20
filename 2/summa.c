@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
                     int x = i % K, y = i / K,
                         cx = x / chunkAW, cy = y / chunkAH,         // coordinates of the chunk
                         chunkX = x % chunkAW, chunkY = y % chunkAH, // coordinates of item in the chunk
-                        ci = cx + cy * row_size, chunkI = chunkX + chunkY * chunkAW;
+                        ci = cx + cy * col_size, chunkI = chunkX + chunkY * chunkAW;
                     fscanf(fp, "%f", A + ci * chunkAA + chunkI);
                 }
                 for (int i = 0; i < K * N; i++) {
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
                     int x = i % N, y = i / N,
                         cx = x / chunkBW, cy = y / chunkBH,         // coordinates of the chunk
                         chunkX = x % chunkBW, chunkY = y % chunkBH, // coordinates of item in the chunk
-                        ci = cx + cy * row_size, chunkI = chunkX * chunkBH + chunkY;
+                        ci = cx + cy * col_size, chunkI = chunkX * chunkBH + chunkY;
                     fscanf(fp, "%f", B + ci * chunkBA + chunkI);
                 }
             }
@@ -118,6 +118,7 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         free(A);
         free(B);
+        A = B = NULL;
         fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
     }
 
@@ -205,7 +206,7 @@ int main(int argc, char **argv) {
                         cx = j / chunkCW,
                         cy = i / chunkCH,                           // coordinates of the chunk
                         chunkX = j % chunkCW, chunkY = i % chunkCH, // coordinates of item in the chunk
-                        ci = cx + cy * row_size, chunkI = chunkX + chunkY * chunkCW;
+                        ci = cx + cy * col_size, chunkI = chunkX + chunkY * chunkCW;
                     fprintf(fp, "%f", C[ci * chunkCA + chunkI]);
                     if (j < N - 1)
                         fputc('\t', fp);
@@ -218,6 +219,14 @@ int main(int argc, char **argv) {
         }
         free(C);
     }
+    MPI_Comm_free(&comm_cart);
+    MPI_Comm_free(&comm_row);
+    MPI_Comm_free(&comm_col);
+    free(localA);
+    free(localB);
+    free(myA);
+    free(myB);
+    free(myC);
     MPI_Finalize();
     return 0;
 }

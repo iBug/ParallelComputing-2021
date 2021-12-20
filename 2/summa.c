@@ -43,14 +43,16 @@ int main(int argc, char **argv) {
     }
 
     MPI_Comm comm_cart, comm_row, comm_col;
+    int coords[2];
     {
         const int dims[2] = {row_size, col_size},
-                  dims_row[2] = {1, 0},
-                  dims_col[2] = {0, 1},
+                  dims_row[2] = {0, 1},
+                  dims_col[2] = {1, 0},
                   periods[2] = {0, 0};
         MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 0, &comm_cart);
         MPI_Cart_sub(comm_cart, dims_row, &comm_row);
         MPI_Cart_sub(comm_cart, dims_col, &comm_col);
+        MPI_Cart_coords(comm_cart, rank, 2, coords);
     }
 
     float *A = NULL, *B = NULL, *C = NULL;
@@ -90,7 +92,7 @@ int main(int argc, char **argv) {
                     int x = i % N, y = i / N,
                         cx = x / chunkBW, cy = y / chunkBH,         // coordinates of the chunk
                         chunkX = x % chunkBW, chunkY = y % chunkBH, // coordinates of item in the chunk
-                        ci = cx * col_size + cy, chunkI = chunkX * chunkBH + chunkY;
+                        ci = cx + cy * row_size, chunkI = chunkX * chunkBH + chunkY;
                     fscanf(fp, "%f", B + ci * chunkBA + chunkI);
                 }
             }
@@ -109,32 +111,35 @@ int main(int argc, char **argv) {
               chunkCH = chunkAH, chunkCW = chunkBW,
               chunkAA = chunkAH * chunkAW, chunkBA = chunkBH * chunkBW, chunkCA = chunkCH * chunkCW;
 
-    if (rank == 0) {
-        for (int i = 0; i < M * K; i++) {
-            fprintf(stderr, "%f ", A[i]);
-        }
-        fprintf(stderr, "\n");
-        for (int i = 0; i < N * K; i++) {
-            fprintf(stderr, "%f ", B[i]);
-        }
-        fprintf(stderr, "\n");
-    }
-
     // Now scatter A and B
-    float *myA = malloc(chunkAA * sizeof *myA), *myB = malloc(chunkBA * sizeof *myB);
+    float *myA = malloc(chunkAA * sizeof *myA), *myB = malloc(chunkBA * sizeof *myB), *myC = malloc(chunkCA * sizeof *myC);
     MPI_Scatter(A, chunkAA, MPI_FLOAT, myA, chunkAA, MPI_FLOAT, 0, comm_cart);
     MPI_Scatter(B, chunkBA, MPI_FLOAT, myB, chunkBA, MPI_FLOAT, 0, comm_cart);
     if (rank == 0) {
         free(A);
         free(B);
+        fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
     }
-    fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
+
+    for (int r = 0; r < size; r++) {
+        if (rank == r) {
+            fprintf(stderr, "Rank %d (y=%d, x=%d):\n", r, coords[0], coords[1]);
+            for (int i = 0; i < chunkAA; i++) {
+                fprintf(stderr, "%f ", myA[i]);
+            }
+            fprintf(stderr, "\n");
+            for (int i = 0; i < chunkBA; i++) {
+                fprintf(stderr, "%f ", myB[i]);
+            }
+            fprintf(stderr, "\n");
+        }
+        fflush(stderr);
+        MPI_Barrier(comm_cart);
+    }
 
     float *localA = malloc(chunkAA * sizeof *localA),
           *localB = malloc(chunkBA * sizeof *localB);
-    C = malloc(chunkCA * sizeof *C);
-    int coords[2];
-    MPI_Cart_coords(comm_cart, rank, 2, coords);
+    C = myC;
     double total_time = 0.;
     for (int loop = 0; loop < loops; loop++) {
         // Reset C
@@ -144,8 +149,8 @@ int main(int argc, char **argv) {
         // start of [k], index of A's and B's chunks, which chunks we currently have in localA and localB
 
         while (kstart < K) {
-            A = iA == coords[0] ? myA : localA;
-            B = iB == coords[1] ? myB : localB;
+            A = iA == coords[1] ? myA : localA;
+            B = iB == coords[0] ? myB : localB;
 
             if (haveA != iA) {
                 MPI_Bcast(A, chunkAA, MPI_FLOAT, iA, comm_row);
@@ -163,9 +168,8 @@ int main(int argc, char **argv) {
 
             for (int i = 0; i < chunkCH; i++) {
                 for (int j = 0; j < chunkCW; j++) {
-                    fprintf(stderr, "i: %d, j: %d\n", i, j);
                     for (int k = 0; k < kend - kstart; k++) {
-                        fprintf(stderr, "A: %f, B: %f\n", A[i * chunkAW + offsetAk + k], B[j * chunkBH + offsetBk + k]);
+                        fprintf(stderr, "[%d] A: %f, B: %f\n", rank, A[i * chunkAW + offsetAk + k], B[j * chunkBH + offsetBk + k]);
                         C[i * chunkCW + j] += A[i * chunkAW + offsetAk + k] * B[j * chunkBH + offsetBk + k];
                     }
                 }
@@ -181,29 +185,39 @@ int main(int argc, char **argv) {
         total_time += end - start;
     }
     if (rank == 0)
+        C = malloc(M * N * sizeof *C);
+    MPI_Gather(myC, chunkCA, MPI_FLOAT, C, chunkCA, MPI_FLOAT, 0, comm_cart);
+    if (rank == 0)
         fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);
 
-    const char *filename;
-    if (argc > 6) {
-        filename = argv[6];
-    } else {
-        filename = "dataOut.txt";
-    }
-    FILE *fp = fopen(filename, "w");
-    if (fp) {
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                fprintf(fp, "%f", C[i * N + j]);
-                if (j < N - 1)
-                    fputc('\t', fp);
-            }
-            fputc('\n', fp);
+    if (rank == 0) {
+        const char *filename;
+        if (argc > 6) {
+            filename = argv[6];
+        } else {
+            filename = "dataOut.txt";
         }
-        fclose(fp);
-    } else {
-        fprintf(stderr, "Cannot open file \"%s\"\n", filename);
+        FILE *fp = fopen(filename, "w");
+        if (fp) {
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < N; j++) {
+                    int
+                        cx = j / chunkCW,
+                        cy = i / chunkCH,                           // coordinates of the chunk
+                        chunkX = j % chunkCW, chunkY = i % chunkCH, // coordinates of item in the chunk
+                        ci = cx + cy * row_size, chunkI = chunkX + chunkY * chunkCW;
+                    fprintf(fp, "%f", C[ci * chunkCA + chunkI]);
+                    if (j < N - 1)
+                        fputc('\t', fp);
+                }
+                fputc('\n', fp);
+            }
+            fclose(fp);
+        } else {
+            fprintf(stderr, "Cannot open file \"%s\"\n", filename);
+        }
+        free(C);
     }
-    free(C);
     MPI_Finalize();
     return 0;
 }

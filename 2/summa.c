@@ -31,6 +31,17 @@ int main(int argc, char **argv) {
         MPI_Finalize();
         return 1;
     }
+    int loops = 1;
+    if (argc > 4) {
+        loops = atoi(argv[4]);
+        if (loops < 1) {
+            if (rank == 0)
+                fprintf(stderr, "Invalid number of loops\n");
+            MPI_Finalize();
+            return 1;
+        }
+    }
+
     MPI_Comm comm_cart, comm_row, comm_col;
     {
         const int dims[2] = {row_size, col_size},
@@ -42,9 +53,9 @@ int main(int argc, char **argv) {
         MPI_Cart_sub(comm_cart, dims_col, &comm_col);
     }
 
-    float *A, *B, *C;
+    float *A = NULL, *B = NULL, *C = NULL;
     int M = 0, N = 0, K = 0;
-    {
+    if (rank == 0) {
         const char *filename;
         if (argc > 5) {
             filename = argv[5];
@@ -60,11 +71,29 @@ int main(int argc, char **argv) {
             if (M < 1 || N < 1 || K < 1 || M % row_size || N % col_size || K % row_size || K % col_size) {
                 fprintf(stderr, "Invalid matrix size\n");
                 M = N = K = 0;
+            } else {
+                // W = height, H = width, A = Area
+                const int chunkAH = M / row_size, chunkAW = K / col_size,
+                          chunkBH = K / row_size, chunkBW = N / col_size,
+                          chunkAA = chunkAH * chunkAW, chunkBA = chunkBH * chunkBW;
+                A = malloc(M * K * sizeof *A);
+                B = malloc(K * N * sizeof *B);
+                for (int i = 0; i < M * K; i++) {
+                    int x = i % K, y = i / K,
+                        cx = x / chunkAW, cy = y / chunkAH,         // coordinates of the chunk
+                        chunkX = x % chunkAW, chunkY = y % chunkAH, // coordinates of item in the chunk
+                        ci = cx + cy * row_size, chunkI = chunkX + chunkY * chunkAW;
+                    fscanf(fp, "%f", A + ci * chunkAA + chunkI);
+                }
+                for (int i = 0; i < K * N; i++) {
+                    // B is stored in column-major order
+                    int x = i % N, y = i / N,
+                        cx = x / chunkBW, cy = y / chunkBH,         // coordinates of the chunk
+                        chunkX = x % chunkBW, chunkY = y % chunkBH, // coordinates of item in the chunk
+                        ci = cx * col_size + cy, chunkI = chunkX * chunkBH + chunkY;
+                    fscanf(fp, "%f", B + ci * chunkBA + chunkI);
+                }
             }
-            for (int i = 0; i < M * K; i++)
-                fscanf(fp, "%f", A + i);
-            for (int i = 0; i < K * N; i++)
-                fscanf(fp, "%f", B + i);
             fclose(fp);
         }
     }
@@ -75,28 +104,77 @@ int main(int argc, char **argv) {
         MPI_Finalize();
         return 1;
     }
-    const int chunkAH = M / row_size, chunkAW = K / col_size, chunkBH = K / row_size, chunkBW = N / col_size;
+    const int chunkAH = M / row_size, chunkAW = K / col_size,
+              chunkBH = K / row_size, chunkBW = N / col_size,
+              chunkCH = chunkAH, chunkCW = chunkBW,
+              chunkAA = chunkAH * chunkAW, chunkBA = chunkBH * chunkBW, chunkCA = chunkCH * chunkCW;
 
-    int loops = 1;
-    if (argc > 4) {
-        loops = atoi(argv[4]);
-        if (loops < 1) {
-            fprintf(stderr, "Invalid number of loops\n");
-            return 1;
+    if (rank == 0) {
+        for (int i = 0; i < M * K; i++) {
+            fprintf(stderr, "%f ", A[i]);
         }
+        fprintf(stderr, "\n");
+        for (int i = 0; i < N * K; i++) {
+            fprintf(stderr, "%f ", B[i]);
+        }
+        fprintf(stderr, "\n");
+    }
+
+    // Now scatter A and B
+    float *myA = malloc(chunkAA * sizeof *myA), *myB = malloc(chunkBA * sizeof *myB);
+    MPI_Scatter(A, chunkAA, MPI_FLOAT, myA, chunkAA, MPI_FLOAT, 0, comm_cart);
+    MPI_Scatter(B, chunkBA, MPI_FLOAT, myB, chunkBA, MPI_FLOAT, 0, comm_cart);
+    if (rank == 0) {
+        free(A);
+        free(B);
     }
     fprintf(stderr, "Running %d iteration%s\n", loops, loops == 1 ? "" : "s");
 
+    float *localA = malloc(chunkAA * sizeof *localA),
+          *localB = malloc(chunkBA * sizeof *localB);
+    C = malloc(chunkCA * sizeof *C);
+    int coords[2];
+    MPI_Cart_coords(comm_cart, rank, 2, coords);
     double total_time = 0.;
     for (int loop = 0; loop < loops; loop++) {
-        // Reset A and B
-        memcpy(A, A, M * K * sizeof *A);
-        memcpy(B, B, K * N * sizeof *B);
+        // Reset C
+        memset(C, 0, chunkCA * sizeof *C);
         const double start = MPI_Wtime();
+        int kstart = 0, iA = 0, iB = 0, haveA = -1, haveB = -1;
+        // start of [k], index of A's and B's chunks, which chunks we currently have in localA and localB
 
-        for (int j = 0; j < N; j++) {
-            for (int i = j + 1; i < N; i++) {
+        while (kstart < K) {
+            A = iA == coords[0] ? myA : localA;
+            B = iB == coords[1] ? myB : localB;
+
+            if (haveA != iA) {
+                MPI_Bcast(A, chunkAA, MPI_FLOAT, iA, comm_row);
+                haveA = iA;
             }
+            if (haveB != iB) {
+                MPI_Bcast(B, chunkBA, MPI_FLOAT, iB, comm_col);
+                haveB = iB;
+            }
+            int Aend = (1 + iA) * chunkAW,
+                Bend = (1 + iB) * chunkBH,
+                kend = Aend < Bend ? Aend : Bend,
+                offsetAk = kstart - iA * chunkAW,
+                offsetBk = kstart - iB * chunkBH;
+
+            for (int i = 0; i < chunkCH; i++) {
+                for (int j = 0; j < chunkCW; j++) {
+                    fprintf(stderr, "i: %d, j: %d\n", i, j);
+                    for (int k = 0; k < kend - kstart; k++) {
+                        fprintf(stderr, "A: %f, B: %f\n", A[i * chunkAW + offsetAk + k], B[j * chunkBH + offsetBk + k]);
+                        C[i * chunkCW + j] += A[i * chunkAW + offsetAk + k] * B[j * chunkBH + offsetBk + k];
+                    }
+                }
+            }
+            kstart = kend;
+            if (kstart >= Aend)
+                iA++;
+            if (kstart >= Bend)
+                iB++;
         }
 
         const double end = MPI_Wtime();
@@ -125,7 +203,7 @@ int main(int argc, char **argv) {
     } else {
         fprintf(stderr, "Cannot open file \"%s\"\n", filename);
     }
-    free(A);
+    free(C);
     MPI_Finalize();
     return 0;
 }

@@ -13,10 +13,14 @@ int My_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void 
     int sendchunk = sendcount * sendtypesize,
         recvchunk = recvcount * recvtypesize;
     memcpy(recvbuf + rank * recvchunk, sendbuf + rank * sendchunk, sendchunk); // send to self
-    for (int i = 1; i < size; i++) {
-        int sendT = (rank + i) % size,
-            recvT = (rank + size - i) % size;
-        MPI_Sendrecv(sendbuf + sendT * sendchunk, sendcount, sendtype, sendT, 0, recvbuf + recvT * recvchunk, recvcount, recvtype, recvT, 0, comm, MPI_STATUS_IGNORE);
+    for (int i = 0; i < size; i++) {
+        if (i < rank) {
+            MPI_Send(sendbuf + i * sendchunk, sendcount, sendtype, i, 0, comm);
+            MPI_Recv(recvbuf + i * recvchunk, recvcount, recvtype, i, 0, comm, MPI_STATUS_IGNORE);
+        } else if (i > rank) {
+            MPI_Recv(recvbuf + i * recvchunk, recvcount, recvtype, i, 0, comm, MPI_STATUS_IGNORE);
+            MPI_Send(sendbuf + i * sendchunk, sendcount, sendtype, i, 0, comm);
+        }
     }
     return 0;
 }

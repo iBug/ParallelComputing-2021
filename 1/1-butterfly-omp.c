@@ -23,6 +23,8 @@ int main() {
         scanf("%d", &A[i]);
     }
 
+    const double start_time = omp_get_wtime();
+
     // Reduce sum
     // Unfortunately we have to use two buffers,
     // otherwise it's impossible to perform "send/recv and add" without blocking
@@ -36,6 +38,10 @@ int main() {
         B = T;
     }
 
+    const double end_time = omp_get_wtime(),
+          run_time = end_time - start_time;
+
+    printf("Time: %.6f\n", run_time);
     for (int i = 0; i < n; i++) {
         printf("A[%d] = %d\n", i, A[i]);
     }

@@ -22,6 +22,8 @@ int main() {
         scanf("%d", &A[i]);
     }
 
+    const double start_time = omp_get_wtime();
+
     // Reduce sum
     for (int i = 1; i < n; i <<= 1) {
 #pragma omp parallel for
@@ -38,6 +40,10 @@ int main() {
         }
     }
 
+    const double end_time = omp_get_wtime(),
+          run_time = end_time - start_time;
+
+    printf("Time: %.6f\n", run_time);
     for (int i = 0; i < n; i++) {
         printf("A[%d] = %d\n", i, A[i]);
     }

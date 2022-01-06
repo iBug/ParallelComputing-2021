@@ -57,6 +57,8 @@ int main(int argc, char **argv) {
         sum += A[i];
     free(A);
 
+    const double start_time = MPI_Wtime();
+
     // Butterfly exchange & add
     for (int i = 1; i < size; i <<= 1) {
         int value;
@@ -64,9 +66,14 @@ int main(int argc, char **argv) {
         sum += value;
     }
 
+    const double end_time = MPI_Wtime();
+    double run_time = end_time - start_time, run_time_sum;
+    MPI_Reduce(&run_time, &run_time_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
     // Print result
     MPI_Gather(&sum, 1, MPI_INT, data, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (rank == 0) {
+        printf("Time: %.6lf\n", run_time_sum / size);
         for (int i = 0; i < size; i++)
             printf("Sum[%d] = %d\n", i, data[i]);
         free(data);

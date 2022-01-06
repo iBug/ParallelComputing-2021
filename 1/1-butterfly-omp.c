@@ -29,7 +29,7 @@ int main() {
     // Unfortunately we have to use two buffers,
     // otherwise it's impossible to perform "send/recv and add" without blocking
     for (int i = 1; i < n; i <<= 1) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static, 1)
         for (int j = 0; j < n; j++) {
             B[j] = A[j] + A[j ^ i];
         }

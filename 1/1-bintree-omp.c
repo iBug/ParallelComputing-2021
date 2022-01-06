@@ -26,7 +26,7 @@ int main() {
 
     // Reduce sum
     for (int i = 1; i < n; i <<= 1) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static, 1)
         for (int j = 0; j < n; j += i << 1) {
             A[j] += A[j + i];
         }
@@ -34,7 +34,7 @@ int main() {
 
     // Broadcast
     for (int i = n >> 1; i > 0; i >>= 1) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static, 1)
         for (int j = 0; j < n; j += i << 1) {
             A[j + i] = A[j];
         }

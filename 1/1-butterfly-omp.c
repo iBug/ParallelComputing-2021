@@ -28,14 +28,18 @@ int main() {
     // Reduce sum
     // Unfortunately we have to use two buffers,
     // otherwise it's impossible to perform "send/recv and add" without blocking
+#pragma omp parallel
     for (int i = 1; i < n; i <<= 1) {
-#pragma omp parallel for schedule(static, 1)
+#pragma omp for schedule(static, 1)
         for (int j = 0; j < n; j++) {
             B[j] = A[j] + A[j ^ i];
         }
-        int *T = A;
-        A = B;
-        B = T;
+#pragma omp single
+        {
+            int *T = A;
+            A = B;
+            B = T;
+        }
     }
 
     const double end_time = omp_get_wtime(),

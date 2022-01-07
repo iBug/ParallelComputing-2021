@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 
     // Generate parameters and process CLI arguments
     srand(time(NULL));
-    int splits = 2, root = rand() % size, value = rand();
+    int splits = 2, root = rand() % size, value = rand(), count = 1;
     if (argc > 1) {
         splits = atoi(argv[1]);
         if (splits < 2) {
@@ -87,8 +87,13 @@ int main(int argc, char **argv) {
     if (argc > 3) {
         value = atoi(argv[3]);
     }
-    if (argc > 4 && rank == 0) {
-        fprintf(stderr, "Warning: Up to 3 arguments are understood\n");
+    if (argc > 4) {
+        count = atoi(argv[4]);
+        if (count < 1)
+            count = 1;
+    }
+    if (argc > 5 && rank == 0) {
+        fprintf(stderr, "Warning: Up to 4 arguments are understood\n");
     }
 
     // Sanity guard: Separate MPI data from command line arguments
@@ -96,17 +101,31 @@ int main(int argc, char **argv) {
     if (rank == root)
         data = value;
 
+    // Reference implementation
+    const double ref_start_time = MPI_Wtime();
+    MPI_Bcast(&data, count, MPI_INT, root, MPI_COMM_WORLD);
+    const double ref_end_time = MPI_Wtime(),
+          ref_run_time = ref_end_time - ref_start_time;
+
     // Broadcast data
-    MPI_MyBcast(&data, 1, MPI_INT, root, MPI_COMM_WORLD, splits);
+    const double my_start_time = MPI_Wtime();
+    MPI_MyBcast(&data, count, MPI_INT, root, MPI_COMM_WORLD, splits);
+    const double my_end_time = MPI_Wtime(),
+          my_run_time = my_end_time - my_start_time;
 
     // Print result
     int *buf = NULL;
     if (rank == root)
-        buf = malloc(size * sizeof(*buf));
-    MPI_Gather(&data, 1, MPI_INT, buf, 1, MPI_INT, root, MPI_COMM_WORLD);
+        buf = malloc(size * count * sizeof(*buf));
+    MPI_Gather(&data, count, MPI_INT, buf, count, MPI_INT, root, MPI_COMM_WORLD);
+    double ref_time, my_time;
+    MPI_Reduce(&ref_run_time, &ref_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&my_run_time, &my_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if (rank == root) {
+        printf("MPI time: %.6lf\n", ref_time);
+        printf("My time:  %.6lf\n", my_time);
         for (int i = 0; i < size; i++)
-            printf("data[%d] = %d\n", i, buf[i]);
+            printf("data[%d] = %d\n", i, buf[i * count]);
         free(buf);
     }
     MPI_Finalize();

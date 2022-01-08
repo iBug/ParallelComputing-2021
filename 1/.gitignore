@@ -10,6 +10,7 @@ output.txt
 2-3.2.2-omp
 2-3.5.1-omp
 2-3.5.2-omp
+2-3.5.3-omp
 3-mybcast-mpi
 4-allgather-mpi
 4-alltoall-mpi

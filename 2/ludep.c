@@ -124,7 +124,6 @@ int main(int argc, char **argv) {
             memcpy(A + (N / size) * scatter_unit, a + (N / size) * N, N * sizeof(*a));
         if (N % size > 1) {
             if (rank == 0) {
-#pragma omp parallel for
                 for (int i = 1; i < N % size; i++) {
                     MPI_Recv(A + (N / size) * scatter_unit + i * N, 1, Mtype, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }
@@ -138,7 +137,7 @@ int main(int argc, char **argv) {
     MPI_Type_free(&Mtype);
 
     if (rank == 0) {
-        fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);
+        fprintf(stderr, "Average processing time: %.6lfs\n", total_time / loops);
 
         const char *filename;
         if (argc >= 3) {

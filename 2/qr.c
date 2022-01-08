@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 #pragma omp single
         total_time += end - start;
     }
-    fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);
+    fprintf(stderr, "Average processing time: %.6lfs\n", total_time / loops);
 
     const char *filename;
     if (argc >= 3) {

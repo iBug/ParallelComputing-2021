@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
         C = malloc(M * N * sizeof *C);
     MPI_Gather(myC, chunkCA, MPI_FLOAT, C, chunkCA, MPI_FLOAT, 0, comm_cart);
     if (rank == 0)
-        fprintf(stderr, "Average processing time: %.3lfs\n", total_time / loops);
+        fprintf(stderr, "Average processing time: %.6lfs\n", total_time / loops);
 
     if (rank == 0) {
         const char *filename;

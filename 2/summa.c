@@ -185,8 +185,7 @@ int main(int argc, char **argv) {
         if (fp) {
             for (int i = 0; i < M; i++) {
                 for (int j = 0; j < N; j++) {
-                    int
-                        cx = j / chunkCW,
+                    int cx = j / chunkCW,
                         cy = i / chunkCH,                           // coordinates of the chunk
                         chunkX = j % chunkCW, chunkY = i % chunkCH, // coordinates of item in the chunk
                         ci = cx + cy * col_size, chunkI = chunkX + chunkY * chunkCW;

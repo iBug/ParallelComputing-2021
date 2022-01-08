@@ -15,11 +15,11 @@ int My_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void 
     memcpy(recvbuf + rank * recvchunk, sendbuf + rank * sendchunk, sendchunk); // send to self
     for (int i = 0; i < size; i++) {
         if (i < rank) {
-            MPI_Send(sendbuf + i * sendchunk, sendcount, sendtype, i, 0, comm);
             MPI_Recv(recvbuf + i * recvchunk, recvcount, recvtype, i, 0, comm, MPI_STATUS_IGNORE);
+            MPI_Send(sendbuf + i * sendchunk, sendcount, sendtype, i, 0, comm);
         } else if (i > rank) {
-            MPI_Recv(recvbuf + i * recvchunk, recvcount, recvtype, i, 0, comm, MPI_STATUS_IGNORE);
             MPI_Send(sendbuf + i * sendchunk, sendcount, sendtype, i, 0, comm);
+            MPI_Recv(recvbuf + i * recvchunk, recvcount, recvtype, i, 0, comm, MPI_STATUS_IGNORE);
         }
     }
     return 0;

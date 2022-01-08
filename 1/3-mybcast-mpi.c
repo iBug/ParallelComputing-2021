@@ -96,20 +96,23 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Warning: Up to 4 arguments are understood\n");
     }
 
-    // Sanity guard: Separate MPI data from command line arguments
-    int data = 0;
-    if (rank == root)
-        data = value;
+    // Deploy input value
+    int *data = malloc(count * sizeof(*data));
+    if (rank == root) {
+        for (int i = 0; i < count; i++) {
+            data[i] = value;
+        }
+    }
 
     // Reference implementation
     const double ref_start_time = MPI_Wtime();
-    MPI_Bcast(&data, count, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(data, count, MPI_INT, root, MPI_COMM_WORLD);
     const double ref_end_time = MPI_Wtime(),
           ref_run_time = ref_end_time - ref_start_time;
 
     // Broadcast data
     const double my_start_time = MPI_Wtime();
-    MPI_MyBcast(&data, count, MPI_INT, root, MPI_COMM_WORLD, splits);
+    MPI_MyBcast(data, count, MPI_INT, root, MPI_COMM_WORLD, splits);
     const double my_end_time = MPI_Wtime(),
           my_run_time = my_end_time - my_start_time;
 
@@ -117,7 +120,7 @@ int main(int argc, char **argv) {
     int *buf = NULL;
     if (rank == root)
         buf = malloc(size * count * sizeof(*buf));
-    MPI_Gather(&data, count, MPI_INT, buf, count, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Gather(data, count, MPI_INT, buf, count, MPI_INT, root, MPI_COMM_WORLD);
     double ref_time, my_time;
     MPI_Reduce(&ref_run_time, &ref_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&my_run_time, &my_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);

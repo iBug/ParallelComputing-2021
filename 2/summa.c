@@ -32,8 +32,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     int loops = 1;
-    if (argc > 4) {
-        loops = atoi(argv[4]);
+    if (argc > 3) {
+        loops = atoi(argv[3]);
         if (loops < 1) {
             if (rank == 0)
                 fprintf(stderr, "Invalid number of loops\n");
@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
     int M = 0, N = 0, K = 0;
     if (rank == 0) {
         const char *filename;
-        if (argc > 5) {
-            filename = argv[5];
+        if (argc > 4) {
+            filename = argv[4];
         } else {
             filename = "dataIn.txt";
         }
@@ -176,8 +176,8 @@ int main(int argc, char **argv) {
 
     if (rank == 0) {
         const char *filename;
-        if (argc > 6) {
-            filename = argv[6];
+        if (argc > 5) {
+            filename = argv[5];
         } else {
             filename = "dataOut.txt";
         }

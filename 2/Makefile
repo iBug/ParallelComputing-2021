@@ -14,10 +14,10 @@ IGNORES := "*.o" "*.txt"
 
 all: .gitignore $(BINS)
 
-ludep summa: %: %.c
+ludep summa psrs: %: %.c
 	$(MPICC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-qr: %: %.c
+qr qsort: %: %.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 .gitignore: $(SRCS)
